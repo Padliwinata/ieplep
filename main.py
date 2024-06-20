@@ -59,10 +59,10 @@ def create_modul(sheet, wb, start_date: datetime.datetime, tp: bool, test_awal: 
     start_date += timedelta(days=(modul-1) * 7)
 
     sheet.merge_range(0, koor, 0, koor + extra - 1, f"MODUL {modul}", header_format)
-    if modul == 1:
-        sheet.merge_range(1, koor, 1, koor + extra - 1, f"{start_date.strftime('%d/%m/%Y')}", cell_format=header_format)
-    else:
-        sheet.merge_range(1, koor, 1, koor + extra - 1, f"={coordinates_to_excel(1, koor-5)}+7", cell_format=date_format)
+    # if modul == 1:
+    sheet.merge_range(1, koor, 1, koor + extra - 1, f"{start_date.strftime('%d/%m/%Y')}", cell_format=header_format)
+    # else:
+    # sheet.merge_range(1, koor, 1, koor + extra - 1, f"={coordinates_to_excel(1, koor-5)}+7", cell_format=date_format)
     sheet.write_string(2, koor, "KEHADIRAN ASPRAK", cell_format=header_format)
     sheet.write_string(2, koor + 1, "KEHADIRAN", cell_format=header_format)
     sheet.write_string(2, koor + 2, "EVIDENCE", cell_format=header_format)
