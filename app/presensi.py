@@ -30,6 +30,13 @@ def number_to_excel_column(n):
     return column
 
 
+def generate_input_tanggal(num_kelas: int, kelas: str):
+    list_tanggal = []
+    for i in range(num_kelas):
+        list_tanggal.append(st.date_input(label=f"Tanggal Mulai Praktikum {kelas}-{str(i+1).zfill(2)}", key=f'tanggal_{i}'))
+    return list_tanggal
+
+
 def coordinates_to_excel(x, y):
     """Convert zero-based row and column numbers to Excel-style coordinates."""
     column = number_to_excel_column(y)
@@ -84,17 +91,14 @@ def create_modul(sheet, wb, start_date: datetime.datetime, tp: bool, test_awal: 
     sheet.write_string(2, koor + 1, "TOTAL NILAI", cell_format=header_format)
 
 
-
-
-
-
 st.title("Presensi Generator")
 
 nama_file = st.text_input(label="Nama File")
 mk_angkatan = st.text_input(label="Prodi dan Angkatan")
 modul = st.number_input(min_value=1, step=1, label="Jumlah Modul")
 jumlah_kelas = st.number_input(min_value=1, step=1, label="Jumlah Kelas")
-tanggal = st.date_input(label="Tanggal Mulai Praktikum")
+list_tanggal = generate_input_tanggal(jumlah_kelas, mk_angkatan)
+
 # evidence = st.checkbox(label="Evidence")
 tp = st.checkbox(label="TP")
 test_awal = st.checkbox(label="Test Awal")
@@ -109,9 +113,9 @@ for i in range(int(jumlah_kelas)):
 for worksheet in worksheets:
     add_base(worksheet, workbook)
 
-for worksheet in worksheets:
+for x in range(len(worksheets)):
     for i in range(modul):
-        create_modul(worksheet, workbook, tanggal, tp, test_awal, test_akhir, i+1)
+        create_modul(worksheets[x], workbook, list_tanggal[x], tp, test_awal, test_akhir, i+1)
 
 workbook.close()
 
