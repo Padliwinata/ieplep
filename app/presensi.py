@@ -80,7 +80,7 @@ def create_modul(sheet, wb, start_date: datetime.datetime, tp: bool, test_awal: 
         koor += 1
 
     if test_awal:
-        sheet.write_string(2, koor + 1, "TES AWAL", cell_format=header_format)
+        sheet.write_string(2, koor + 1, "JURNAL", cell_format=header_format)
         koor += 1
 
     if test_akhir:
@@ -101,7 +101,7 @@ list_tanggal = generate_input_tanggal(jumlah_kelas, mk_angkatan)
 
 # evidence = st.checkbox(label="Evidence")
 tp = st.checkbox(label="TP")
-test_awal = st.checkbox(label="Test Awal")
+test_awal = st.checkbox(label="Jurnal")
 test_akhir = st.checkbox(label="Test Akhir")
 # total_nilai = st.checkbox(label="Total Nilai")
 
