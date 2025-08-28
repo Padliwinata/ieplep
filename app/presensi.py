@@ -162,7 +162,7 @@ if st.button("Generate File Excel"):
     workbook.close()
 
     st.download_button(
-        label="⬇️ Download File Excel",
+        label=f"Download File Excel {nama_file}.xlsx",
         data=output.getvalue(),
         file_name=f"{nama_file}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
