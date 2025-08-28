@@ -1,6 +1,6 @@
 import datetime
-import os
 from datetime import timedelta
+import io
 
 import streamlit as st
 import xlsxwriter
@@ -19,31 +19,50 @@ def add_base(sheet, wb):
     sheet.merge_range('C1:C3', 'NAMA', header_format)
     sheet.merge_range('D1:D3', 'KODE ASPRAK', header_format)
 
+    sheet.set_column('A:A', 6)
+    sheet.set_column('B:B', 14)
+    sheet.set_column('C:C', 24)
+    sheet.set_column('D:D', 14)
+    sheet.freeze_panes(3, 0)
 
-def number_to_excel_column(n):
-    """Convert a number to an Excel-style column (0 -> A, 1 -> B, ..., 26 -> AA, etc.)."""
+
+def number_to_excel_column(n: int) -> str:
     column = ""
-    n += 1  # Adjust for zero-based index
+    n += 1
     while n > 0:
         n, remainder = divmod(n - 1, 26)
         column = chr(65 + remainder) + column
     return column
 
 
-def generate_input_tanggal(num_kelas: int, kelas: str):
+def coordinates_to_excel(x: int, y: int) -> str:
+    column = number_to_excel_column(y)
+    return f"{column}{x + 1}"
+
+
+def generate_input_tanggal(num_kelas: int, kelas_label: str):
     list_tanggal = []
+    today = datetime.date.today()
     for i in range(num_kelas):
-        list_tanggal.append(st.date_input(label=f"Tanggal Mulai Praktikum {kelas}-{str(i+1).zfill(2)}", key=f'tanggal_{i}'))
+        tgl = st.date_input(
+            label=f"Tanggal Mulai Praktikum {kelas_label}-{str(i+1).zfill(2)}",
+            key=f'tanggal_{kelas_label}_{i}',
+            value=today
+        )
+        list_tanggal.append(datetime.datetime.combine(tgl, datetime.time.min))
     return list_tanggal
 
 
-def coordinates_to_excel(x, y):
-    """Convert zero-based row and column numbers to Excel-style coordinates."""
-    column = number_to_excel_column(y)
-    return f"{column}{x + 1}"  # Adjust for zero-based index
-
-
-def create_modul(sheet, wb, start_date: datetime.datetime, tp: bool, test_awal: bool, test_akhir: bool, modul: int):
+def create_modul(
+    sheet,
+    wb,
+    start_date: datetime.datetime,
+    tp: bool,
+    test_awal: bool,
+    test_akhir: bool,
+    rate: bool,
+    modul: int
+):
     header_format = wb.add_format({
         'bold': True,
         'border': 1,
@@ -51,7 +70,6 @@ def create_modul(sheet, wb, start_date: datetime.datetime, tp: bool, test_awal: 
         'valign': 'vcenter',
         'fg_color': '#C6E0B4'
     })
-
     date_format = wb.add_format({
         'bold': True,
         'border': 1,
@@ -61,67 +79,93 @@ def create_modul(sheet, wb, start_date: datetime.datetime, tp: bool, test_awal: 
         'num_format': 'dd/mm/yyyy'
     })
 
-    extra = 4 + tp + test_awal + test_akhir
-    koor = (modul - 1) * extra + 4
-    start_date += timedelta(days=(modul-1) * 7)
+    optional_cols = [
+        ("TP", tp),
+        ("JURNAL", test_awal),
+        ("TES AKHIR", test_akhir),
+        ("RATE", rate),
+    ]
+    selected_option_names = [name for name, on in optional_cols if on]
+    num_option = len(selected_option_names)
 
-    sheet.merge_range(0, koor, 0, koor + extra - 1, f"MODUL {modul}", header_format)
-    # if modul == 1:
-    sheet.merge_range(1, koor, 1, koor + extra - 1, f"{start_date.strftime('%d/%m/%Y')}", cell_format=header_format)
-    # else:
-    # sheet.merge_range(1, koor, 1, koor + extra - 1, f"={coordinates_to_excel(1, koor-5)}+7", cell_format=date_format)
-    sheet.write_string(2, koor, "KEHADIRAN ASPRAK", cell_format=header_format)
-    sheet.write_string(2, koor + 1, "KEHADIRAN", cell_format=header_format)
-    sheet.write_string(2, koor + 2, "EVIDENCE", cell_format=header_format)
+    total_cols_this_module = 4 + num_option
+    start_col = (modul - 1) * total_cols_this_module + 4
+    modul_date = start_date + timedelta(days=(modul - 1) * 7)
 
-    koor += 2
-    if tp:
-        sheet.write_string(2, koor + 1, "TP", cell_format=header_format)
-        koor += 1
+    sheet.merge_range(0, start_col, 0, start_col + total_cols_this_module - 1, f"MODUL {modul}", header_format)
+    sheet.merge_range(1, start_col, 1, start_col + total_cols_this_module - 1, modul_date.strftime('%d/%m/%Y'), header_format)
 
-    if test_awal:
-        sheet.write_string(2, koor + 1, "JURNAL", cell_format=header_format)
-        koor += 1
+    col = start_col
+    sheet.write_string(2, col, "KEHADIRAN ASPRAK", header_format); col += 1
+    sheet.write_string(2, col, "KEHADIRAN", header_format);        col += 1
+    sheet.write_string(2, col, "EVIDENCE", header_format);          col += 1
 
-    if test_akhir:
-        sheet.write_string(2, koor + 1, "TES AKHIR", cell_format=header_format)
-        koor += 1
+    for name in selected_option_names:
+        sheet.write_string(2, col, name, header_format)
+        col += 1
 
-    sheet.write_string(2, koor + 1, "JURNAL", cell_format=header_format)
-    sheet.write_string(2, koor + 1, "TOTAL NILAI", cell_format=header_format)
+    sheet.write_string(2, col, "TOTAL NILAI", header_format)
+    sheet.set_column(start_col, start_col + total_cols_this_module - 1, 14)
 
 
+st.set_page_config(page_title="Presensi Generator", page_icon="📘", layout="wide")
 st.title("Presensi Generator")
 
-nama_file = st.text_input(label="Nama File")
-mk_angkatan = st.text_input(label="Prodi dan Angkatan")
-modul = st.number_input(min_value=1, step=1, label="Jumlah Modul")
-jumlah_kelas = st.number_input(min_value=1, step=1, label="Jumlah Kelas")
-list_tanggal = generate_input_tanggal(jumlah_kelas, mk_angkatan)
+with st.sidebar:
+    st.markdown("### Opsi File")
+    nama_file = st.text_input(label="Nama File (tanpa .xlsx)", value="presensi")
+    mk_angkatan = st.text_input(label="Prodi & Angkatan", value="TI-2022")
+    modul = st.number_input(min_value=1, step=1, label="Jumlah Modul", value=8)
+    jumlah_kelas = st.number_input(min_value=1, step=1, label="Jumlah Kelas", value=1)
 
-# evidence = st.checkbox(label="Evidence")
-tp = st.checkbox(label="TP")
-test_awal = st.checkbox(label="Jurnal")
-test_akhir = st.checkbox(label="Test Akhir")
-# total_nilai = st.checkbox(label="Total Nilai")
+st.markdown("### Tanggal Mulai per Kelas")
+list_tanggal = generate_input_tanggal(int(jumlah_kelas), mk_angkatan)
 
-workbook = xlsxwriter.Workbook(f"{nama_file}.xlsx")
-worksheets = []
-for i in range(int(jumlah_kelas)):
-    worksheets.append(workbook.add_worksheet(f"{mk_angkatan}-{str(i+1).zfill(2)}"))
+st.markdown("### Opsi Kolom Opsional per Modul")
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    tp = st.checkbox(label="TP", value=True)
+with col2:
+    test_awal = st.checkbox(label="JURNAL", value=True)
+with col3:
+    test_akhir = st.checkbox(label="TES AKHIR", value=True)
+with col4:
+    rate = st.checkbox(label="RATE", value=True)
 
-for worksheet in worksheets:
-    add_base(worksheet, workbook)
+st.markdown("---")
 
-for x in range(len(worksheets)):
-    for i in range(modul):
-        create_modul(worksheets[x], workbook, list_tanggal[x], tp, test_awal, test_akhir, i+1)
+if st.button("Generate File Excel"):
+    output = io.BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
 
-workbook.close()
+    worksheets = []
+    for i in range(int(jumlah_kelas)):
+        ws_name = f"{mk_angkatan}-{str(i+1).zfill(2)}"
+        worksheets.append(workbook.add_worksheet(ws_name))
 
-with open(f"{nama_file}.xlsx", "rb") as file:
-    st.download_button(label="Download", data=file.read(), file_name=f"{nama_file}.xlsx", mime='application/vnd.ms-excel')
+    for ws in worksheets:
+        add_base(ws, workbook)
 
-os.remove(f"{nama_file}.xlsx")
+    for idx_ws, ws in enumerate(worksheets):
+        for i_modul in range(int(modul)):
+            create_modul(
+                ws,
+                workbook,
+                list_tanggal[idx_ws],
+                tp=tp,
+                test_awal=test_awal,
+                test_akhir=test_akhir,
+                rate=rate,
+                modul=i_modul + 1
+            )
 
+    workbook.close()
 
+    st.download_button(
+        label="⬇️ Download File Excel",
+        data=output.getvalue(),
+        file_name=f"{nama_file}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    st.success("File berhasil dibuat!")
